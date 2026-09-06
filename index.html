@@ -3,30 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Architectural Land & Layout Generator</title>
+  <title>Architectural Land & Layout Studio</title>
 
-  <!-- Leaflet & Drawing Tool Stylesheets -->
+  <!-- Leaflet & Drawing Plugins -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.css" />
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body, #map { height: 100vh; width: 100vw; overflow: hidden; }
+    body, #map { height: 100vh; width: 100vw; overflow: hidden; background: #000; }
 
-    /* Architect Control Dashboard */
     #sidebar {
       position: absolute;
-      top: 12px;
-      right: 12px;
-      background: rgba(15, 23, 42, 0.95);
+      top: 14px;
+      right: 14px;
+      background: rgba(15, 23, 42, 0.94);
       color: #ffffff;
-      padding: 18px;
+      padding: 16px;
       border-radius: 12px;
       z-index: 1000;
       box-shadow: 0 8px 30px rgba(0,0,0,0.45);
-      width: 320px;
-      max-height: 94vh;
-      overflow-y: auto;
+      width: 310px;
       border: 1px solid #334155;
       backdrop-filter: blur(8px);
     }
@@ -71,6 +68,7 @@
     }
     .legend-item { display: flex; align-items: center; gap: 6px; }
     .color-box { width: 12px; height: 12px; border-radius: 2px; }
+    .guide { font-size: 11px; color: #94a3b8; line-height: 1.4; margin-top: 8px; border-top: 1px solid #334155; padding-top: 6px; }
   </style>
 </head>
 <body>
@@ -78,36 +76,38 @@
   <div id="sidebar">
     <h2>Architect Layout Studio</h2>
 
-    <!-- Coordinate Jump -->
     <div class="nav-box">
-      <input type="text" id="coordInput" placeholder="Lat, Long (e.g. 17.25, 80.15)" />
+      <input type="text" id="coordInput" placeholder="Lat, Long (e.g. 17.2472, 80.1514)" />
       <button class="btn-nav" onclick="flyToLocation()">Fly</button>
     </div>
 
-    <!-- Boundary Measurements -->
     <div class="metric-card">
       <div class="metric"><span class="metric-name">Total Extent:</span><span class="metric-value" id="val-acres">0.00 Acres</span></div>
       <div class="metric"><span class="metric-name">Guntas:</span><span class="metric-value" id="val-guntas">0.00 Gts</span></div>
       <div class="metric"><span class="metric-name">Gross Sq. Yards:</span><span class="metric-value" id="val-sqyd">0 Sq.Yd</span></div>
-      <div class="metric"><span class="metric-name">Estimated Plots:</span><span class="metric-value" id="val-plotcount">0 Plots</span></div>
+      <div class="metric"><span class="metric-name">Est. 200yd Plots:</span><span class="metric-value" id="val-plotcount">0 Plots</span></div>
     </div>
 
-    <!-- Generator Actions -->
     <button class="btn-generate" onclick="generateArchitectLayout()">⚡ Auto-Generate Master Plan</button>
     <button class="btn-kml" onclick="exportArchitecturalKML()">🌍 Export 3D Google Earth KML</button>
 
-    <!-- Map Legend -->
     <div class="legend">
-      <div class="legend-item"><div class="color-box" style="background:#f59e0b"></div> Residential Plots</div>
+      <div class="legend-item"><div class="color-box" style="background:#f59e0b"></div> Villa Plots</div>
       <div class="legend-item"><div class="color-box" style="background:#64748b"></div> 40ft Spine Road</div>
       <div class="legend-item"><div class="color-box" style="background:#22c55e"></div> Park / Open Space</div>
-      <div class="legend-item"><div class="color-box" style="background:#ef4444"></div> Utility / OHT Tank</div>
+      <div class="legend-item"><div class="color-box" style="background:#ef4444"></div> Utility / Water Tank</div>
+    </div>
+
+    <div class="guide">
+      1. Click the <strong>Polygon icon</strong> on the left toolbar to draw boundaries.<br>
+      2. Click <strong>⚡ Auto-Generate</strong> to create plots & road.<br>
+      3. Click <strong>Export 3D KML</strong> to open directly in Google Earth.
     </div>
   </div>
 
   <div id="map"></div>
 
-  <!-- Leaflet, Geoman Toolbar, Turf.js Spatial Math -->
+  <!-- Leaflet, Geoman Drawing & Turf.js Engine -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script>
   <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
@@ -115,24 +115,31 @@
   <script>
     var map = L.map('map').setView([17.2472, 80.1514], 16);
 
-    // High-resolution Satellite Imagery
+    // Free, 100% reliable satellite imagery
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
       maxZoom: 19,
-      attribution: 'Esri Satellite'
+      attribution: 'Esri World Imagery'
     }).addTo(map);
 
-    // Drawing Toolbar
+    // Free town/road labels overlay
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19
+    }).addTo(map);
+
     map.pm.addControls({
       position: 'topleft',
       drawPolygon: true,
       drawRectangle: true,
       drawPolyline: false,
+      drawCircle: false,
+      drawMarker: false,
+      drawCircleMarker: false,
       editMode: true,
       removalMode: true
     });
 
     var outerBoundaryLayer = null;
-    var layoutFeatures = []; // Stores generated plots, roads, and amenities
+    var layoutFeatures = [];
     var layoutLayerGroup = L.layerGroup().addTo(map);
 
     map.on('pm:create', function(e) {
@@ -155,10 +162,8 @@
       var acres = sqm / 4046.8564;
       var guntas = acres * 40;
       var sqYards = sqm * 1.19599;
-
-      // Net saleable area formula: ~55% of gross land / standard 220 Sq.Yard villa plot
       var netSaleableYards = sqYards * 0.55;
-      var estimatedPlots = Math.floor(netSaleableYards / 220);
+      var estimatedPlots = Math.floor(netSaleableYards / 200);
 
       document.getElementById('val-acres').innerText = acres.toFixed(2) + ' Acres';
       document.getElementById('val-guntas').innerText = guntas.toFixed(1) + ' Gts';
@@ -172,11 +177,11 @@
       if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
         map.flyTo([coords[0], coords[1]], 17);
       } else {
-        alert('Please enter coordinates in "Lat, Long" format.');
+        alert('Please enter coordinates like: 17.2472, 80.1514');
       }
     }
 
-    // --- ARCHITECTURAL DIVISION ENGINE ---
+    // Auto-carve master layout
     function generateArchitectLayout() {
       if (!outerBoundaryLayer) {
         alert('Draw your outer vacant land boundary first.');
@@ -190,7 +195,6 @@
       var bbox = turf.bbox(boundaryGeo);
       var minX = bbox[0], minY = bbox[1], maxX = bbox[2], maxY = bbox[3];
 
-      // Divide site into an architectural grid
       var rows = 5;
       var cols = 6;
       var dx = (maxX - minX) / cols;
@@ -206,7 +210,6 @@
             minY + (r + 1) * dy
           ]);
 
-          // Clip to actual surveyed polygon boundary
           var intersection = turf.intersect(boundaryGeo, cellBox);
 
           if (intersection) {
@@ -214,20 +217,15 @@
             var color = '#f59e0b';
             var name = 'Plot ' + plotIndex;
 
-            // Row 2 is allocated for the 40ft Main Central Spine Road
             if (r === 2) {
               type = 'road';
               color = '#64748b';
               name = '40ft Master Spine Road';
-            }
-            // Corner allocated for Statutory Open Green Space (Park)
-            else if (r === 0 && c <= 1) {
+            } else if (r === 0 && c <= 1) {
               type = 'park';
               color = '#22c55e';
-              name = 'Public Park & Landscape';
-            }
-            // Corner allocated for Utility / Water Tank Substation
-            else if (r === 0 && c === 2) {
+              name = 'Public Park & Open Space';
+            } else if (r === 0 && c === 2) {
               type = 'utility';
               color = '#ef4444';
               name = 'Utility Bay (OHT & Transformer)';
@@ -244,7 +242,6 @@
 
             layoutFeatures.push(intersection);
 
-            // Render on map
             L.geoJSON(intersection, {
               style: {
                 color: '#ffffff',
@@ -252,13 +249,13 @@
                 fillColor: color,
                 fillOpacity: 0.65
               }
-            }).bindPopup('<b>' + name + '</b><br>Type: ' + type.toUpperCase() + '<br>Area: ' + intersection.properties.areaSqYards + ' Sq.Yds').addTo(layoutLayerGroup);
+            }).bindPopup('<b>' + name + '</b><br>Type: ' + type.toUpperCase() + '<br>Area: ' + intersection.properties.areaSqYards + ' Sq.Yards').addTo(layoutLayerGroup);
           }
         }
       }
     }
 
-    // --- 3D GOOGLE EARTH KML GENERATION ---
+    // Export 3D Google Earth KML
     function exportArchitecturalKML() {
       if (layoutFeatures.length === 0) {
         alert('Generate the layout plan first.');
@@ -272,13 +269,12 @@
         var type = feat.properties.type;
         var sqyd = feat.properties.areaSqYards;
 
-        // KML Color encoding (AABBGGRR in hex)
-        var kmlColor = 'b30b9ef5'; // Plots: Orange
-        var height = '8';          // 3D extrusion height in meters
+        var kmlColor = 'b30b9ef5'; // Plots
+        var height = '7';
 
         if (type === 'road') { kmlColor = 'b38b7464'; height = '0.5'; }
         if (type === 'park') { kmlColor = 'b35ec522'; height = '0.2'; }
-        if (type === 'utility') { kmlColor = 'b34444ef'; height = '14'; } // Elevated tank height
+        if (type === 'utility') { kmlColor = 'b34444ef'; height = '14'; }
 
         var geom = feat.geometry;
         var coordsArray = (geom.type === 'Polygon') ? geom.coordinates[0] : geom.coordinates[0][0];
@@ -290,7 +286,7 @@
         placemarks += `
         <Placemark>
           <name>${name} (${sqyd} Sq.Yd)</name>
-          <description>Category: ${type.toUpperCase()}&#10;Estimated Footprint: ${sqyd} Sq. Yards</description>
+          <description>Category: ${type.toUpperCase()}&#10;Footprint: ${sqyd} Sq. Yards</description>
           <Style>
             <LineStyle><color>ffffffff</color><width>2</width></LineStyle>
             <PolyStyle><color>${kmlColor}</color><fill>1</fill><outline>1</outline></PolyStyle>
@@ -308,7 +304,7 @@
       var kml = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
-    <name>Master Architectural Layout Plan</name>
+    <name>Architectural Master Plan</name>
     <open>1</open>
     ${placemarks}
   </Document>
