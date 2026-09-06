@@ -55,7 +55,6 @@
     .btn-nav { background: #0284c7; color: #fff; }
     .btn-nav:hover { background: #0369a1; }
     
-    /* GPS Toggle Button Styles */
     .btn-gps-toggle {
       width: 100%;
       padding: 9px;
@@ -103,7 +102,6 @@
     .color-box { width: 12px; height: 12px; border-radius: 2px; }
     .guide { font-size: 11px; color: #94a3b8; line-height: 1.4; margin-top: 8px; border-top: 1px solid #334155; padding-top: 6px; }
 
-    /* Pulsing Blue Dot for User GPS */
     .gps-marker-icon {
       width: 14px;
       height: 14px;
@@ -125,13 +123,12 @@
   <div id="sidebar">
     <h2>Architect Layout Studio</h2>
 
-    <!-- Coordinate Jump -->
     <div class="nav-box">
       <input type="text" id="coordInput" placeholder="Lat, Long (e.g. 17.2472, 80.1514)" />
       <button class="btn-nav" onclick="flyToLocation()">Fly</button>
     </div>
 
-    <!-- GPS Live Toggle -->
+    <!-- GPS Toggle & Pin Controls -->
     <button id="gpsToggleBtn" class="btn-gps-toggle" onclick="toggleGPS()">
       <span id="gpsStatusDot">⚪</span> 📍 Toggle My Live Location
     </button>
@@ -139,7 +136,6 @@
       📌 Pin Corner at My Current Spot
     </button>
 
-    <!-- Site Measurements -->
     <div class="metric-card">
       <div class="metric"><span class="metric-name">Total Extent:</span><span class="metric-value" id="val-acres">0.00 Acres</span></div>
       <div class="metric"><span class="metric-name">Guntas:</span><span class="metric-value" id="val-guntas">0.00 Gts</span></div>
@@ -147,11 +143,9 @@
       <div class="metric"><span class="metric-name">Est. 200yd Plots:</span><span class="metric-value" id="val-plotcount">0 Plots</span></div>
     </div>
 
-    <!-- Generator Actions -->
     <button class="btn-generate" onclick="generateArchitectLayout()">⚡ Auto-Generate Master Plan</button>
     <button class="btn-kml" onclick="exportArchitecturalKML()">🌍 Export 3D Google Earth KML</button>
 
-    <!-- Legend -->
     <div class="legend">
       <div class="legend-item"><div class="color-box" style="background:#f59e0b"></div> Villa Plots</div>
       <div class="legend-item"><div class="color-box" style="background:#64748b"></div> 40ft Spine Road</div>
@@ -160,14 +154,13 @@
     </div>
 
     <div class="guide">
-      • Toggle GPS ON to see your live position as you walk the parcel.<br>
-      • Use <strong>Pin Corner</strong> to capture survey stones on foot, or trace corners using the polygon tool.
+      • Toggle GPS ON to track your spot live.<br>
+      • Use <strong>Pin Corner</strong> to capture survey stones while walking.
     </div>
   </div>
 
   <div id="map"></div>
 
-  <!-- Leaflet, Drawing Tools & Turf.js -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script>
   <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
@@ -175,13 +168,11 @@
   <script>
     var map = L.map('map').setView([17.2472, 80.1514], 16);
 
-    // Esri High-Resolution Satellite Layer
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
       maxZoom: 19,
       attribution: 'Esri World Imagery'
     }).addTo(map);
 
-    // Reference places/streets overlay
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
       maxZoom: 19
     }).addTo(map);
@@ -241,7 +232,7 @@
       }
     }
 
-    // --- LIVE GPS TRACKING & TOGGLE SYSTEM ---
+    // GPS Toggle Tracking Engine
     var isGPSTracking = false;
     var gpsWatchId = null;
     var gpsUserMarker = null;
@@ -250,15 +241,12 @@
 
     function toggleGPS() {
       var btn = document.getElementById('gpsToggleBtn');
-      var dot = document.getElementById('gpsStatusDot');
-
       if (!isGPSTracking) {
         if (!navigator.geolocation) {
           alert('Geolocation is not supported by your browser.');
           return;
         }
 
-        // Start watching position continuously
         gpsWatchId = navigator.geolocation.watchPosition(
           function(position) {
             var lat = position.coords.latitude;
@@ -266,16 +254,13 @@
             var acc = position.coords.accuracy;
             latestUserLatLng = [lat, lng];
 
-            // First time location is acquired, fly to it
             if (!gpsUserMarker) {
               map.flyTo([lat, lng], 18);
             }
 
-            // Remove old marker/circle
             if (gpsUserMarker) map.removeLayer(gpsUserMarker);
             if (gpsAccuracyCircle) map.removeLayer(gpsAccuracyCircle);
 
-            // Create custom pulsing blue dot
             var icon = L.divIcon({
               className: 'gps-marker-icon',
               iconSize: [14, 14],
@@ -291,7 +276,7 @@
               weight: 1
             }).addTo(map);
 
-            gpsUserMarker.bindPopup("<b>You are here</b><br>Accuracy: " + Math.round(acc) + "m");
+            gpsUserMarker.bindPopup("<b>Your Spot</b><br>Accuracy: " + Math.round(acc) + "m");
           },
           function(err) {
             alert('Location error: ' + err.message);
@@ -322,21 +307,19 @@
       btn.innerHTML = '<span id="gpsStatusDot">⚪</span> 📍 Toggle My Live Location';
     }
 
-    // Drop a corner pin at current GPS spot while walking on site
     var onSitePoints = [];
     var onSitePinsGroup = L.layerGroup().addTo(map);
 
     function tagCurrentGPSCorner() {
       if (!latestUserLatLng) {
-        alert('Please turn ON "Toggle My Live Location" first so we can find your coordinates.');
+        alert('Turn ON "Toggle My Live Location" first to grab coordinates.');
         return;
       }
 
       onSitePoints.push(latestUserLatLng);
       var pin = L.marker(latestUserLatLng).addTo(onSitePinsGroup);
-      pin.bindPopup("<b>Corner #" + onSitePoints.length + "</b><br>" + latestUserLatLng[0].toFixed(6) + ", " + latestUserLatLng[1].toFixed(6)).openPopup();
+      pin.bindPopup("<b>Corner #" + onSitePoints.length + "</b>").openPopup();
 
-      // If user tagged 3 or more corners, auto-construct the boundary polygon
       if (onSitePoints.length >= 3) {
         if (outerBoundaryLayer) map.removeLayer(outerBoundaryLayer);
         outerBoundaryLayer = L.polygon(onSitePoints, { color: '#38bdf8', weight: 3, fillOpacity: 0.2 }).addTo(map);
@@ -344,10 +327,9 @@
       }
     }
 
-    // --- ARCHITECTURAL MASTER PLAN GENERATOR ---
     function generateArchitectLayout() {
       if (!outerBoundaryLayer) {
-        alert('Draw your outer vacant land boundary or walk and pin corners first.');
+        alert('Draw your outer boundary first.');
         return;
       }
 
@@ -412,13 +394,12 @@
                 fillColor: color,
                 fillOpacity: 0.65
               }
-            }).bindPopup('<b>' + name + '</b><br>Type: ' + type.toUpperCase() + '<br>Area: ' + intersection.properties.areaSqYards + ' Sq.Yards').addTo(layoutLayerGroup);
+            }).bindPopup('<b>' + name + '</b><br>' + intersection.properties.areaSqYards + ' Sq.Yards').addTo(layoutLayerGroup);
           }
         }
       }
     }
 
-    // --- 3D GOOGLE EARTH KML EXPORT ---
     function exportArchitecturalKML() {
       if (layoutFeatures.length === 0) {
         alert('Generate the layout plan first.');
@@ -426,7 +407,6 @@
       }
 
       var placemarks = '';
-
       layoutFeatures.forEach(function(feat) {
         var name = feat.properties.name;
         var type = feat.properties.type;
@@ -449,7 +429,6 @@
         placemarks += `
         <Placemark>
           <name>${name} (${sqyd} Sq.Yd)</name>
-          <description>Category: ${type.toUpperCase()}&#10;Footprint: ${sqyd} Sq. Yards</description>
           <Style>
             <LineStyle><color>ffffffff</color><width>2</width></LineStyle>
             <PolyStyle><color>${kmlColor}</color><fill>1</fill><outline>1</outline></PolyStyle>
