@@ -55,6 +55,7 @@
     .btn-nav { background: #0284c7; color: #fff; }
     .btn-nav:hover { background: #0369a1; }
     
+    /* GPS Toggle Button Styles */
     .btn-gps-toggle {
       width: 100%;
       padding: 9px;
@@ -123,12 +124,13 @@
   <div id="sidebar">
     <h2>Architect Layout Studio</h2>
 
+    <!-- Coordinate Jump -->
     <div class="nav-box">
       <input type="text" id="coordInput" placeholder="Lat, Long (e.g. 17.2472, 80.1514)" />
       <button class="btn-nav" onclick="flyToLocation()">Fly</button>
     </div>
 
-    <!-- GPS Toggle & Pin Controls -->
+    <!-- GPS Live Toggle -->
     <button id="gpsToggleBtn" class="btn-gps-toggle" onclick="toggleGPS()">
       <span id="gpsStatusDot">⚪</span> 📍 Toggle My Live Location
     </button>
@@ -136,6 +138,7 @@
       📌 Pin Corner at My Current Spot
     </button>
 
+    <!-- Site Measurements -->
     <div class="metric-card">
       <div class="metric"><span class="metric-name">Total Extent:</span><span class="metric-value" id="val-acres">0.00 Acres</span></div>
       <div class="metric"><span class="metric-name">Guntas:</span><span class="metric-value" id="val-guntas">0.00 Gts</span></div>
@@ -143,9 +146,11 @@
       <div class="metric"><span class="metric-name">Est. 200yd Plots:</span><span class="metric-value" id="val-plotcount">0 Plots</span></div>
     </div>
 
+    <!-- Generator Actions -->
     <button class="btn-generate" onclick="generateArchitectLayout()">⚡ Auto-Generate Master Plan</button>
     <button class="btn-kml" onclick="exportArchitecturalKML()">🌍 Export 3D Google Earth KML</button>
 
+    <!-- Legend -->
     <div class="legend">
       <div class="legend-item"><div class="color-box" style="background:#f59e0b"></div> Villa Plots</div>
       <div class="legend-item"><div class="color-box" style="background:#64748b"></div> 40ft Spine Road</div>
@@ -161,6 +166,7 @@
 
   <div id="map"></div>
 
+  <!-- Leaflet, Drawing Tools & Turf.js -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script>
   <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
