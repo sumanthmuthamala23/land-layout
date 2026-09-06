@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Land Layout & Boundary Tool</title>
+
+  <!-- Leaflet & Drawing Tool Stylesheets -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.css" />
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    #map {
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* Floating Land Info Box */
+    #info-box {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: rgba(15, 23, 42, 0.94);
+      color: #ffffff;
+      padding: 18px 20px;
+      border-radius: 12px;
+      z-index: 1000;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+      width: 280px;
+      backdrop-filter: blur(6px);
+      border: 1px solid #334155;
+    }
+    #info-box h3 {
+      margin: 0 0 12px 0;
+      font-size: 15px;
+      color: #38bdf8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .metric {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 7px;
+      font-size: 13px;
+    }
+    .metric-name {
+      color: #94a3b8;
+    }
+    .metric-value {
+      font-weight: 600;
+      color: #f8fafc;
+    }
+    .divider {
+      border-top: 1px solid #334155;
+      margin: 12px 0;
+    }
+    .search-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid #475569;
+      background: #0f172a;
+      color: #fff;
+      font-size: 12px;
+      outline: none;
+    }
+    button.btn {
+      background: #0284c7;
+      color: #fff;
+      border: none;
+      padding: 7px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 12px;
+      transition: background 0.2s;
+    }
+    button.btn:hover {
+      background: #0369a1;
+    }
+    button.btn-export {
+      background: #10b981;
+      width: 100%;
+      padding: 9px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    button.btn-export:hover {
+      background: #059669;
+    }
+    .help-text {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 10px;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="info-box">
+    <!-- Navigate Section -->
+    <div class="search-row">
+      <input type="text" id="coordInput" placeholder="Lat, Long (e.g. 17.25, 80.15)" />
+      <button class="btn" onclick="flyToLocation()">Go</button>
+    </div>
+
+    <!-- Area Metrics -->
+    <h3>Land Measurements</h3>
+    <div class="metric"><span class="metric-name">Acres:</span><span class="metric-value" id="acres">0.00</span></div>
+    <div class="metric"><span class="metric-name">Guntas:</span><span class="metric-value" id="guntas">0.00</span></div>
+    <div class="metric"><span class="metric-name">Sq. Yards (Gajalu):</span><span class="metric-value" id="sqyd">0.00</span></div>
+    <div class="metric"><span class="metric-name">Sq. Meters:</span><span class="metric-value" id="sqm">0.00</span></div>
+    <div class="metric"><span class="metric-name">Perimeter:</span><span class="metric-value" id="perim">0.00 m</span></div>
+    
+    <div class="divider"></div>
+
+    <!-- Google Earth KML Export -->
+    <button class="btn btn-export" onclick="downloadKML()">Download Google Earth KML</button>
+
+    <div class="help-text">
+      Click the <strong>Polygon icon</strong> on the top left to draw corners. Click the initial corner to close.
+    </div>
+  </div>
+
+  <div id="map"></div>
+
+  <!-- Leaflet, Drawing Engine & Geometry Calculation Engine -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script>
+  <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+
+  <script>
+    var map = L.map('map').setView([17.2472, 80.1514], 16);
+
+    // Esri High-Resolution Satellite Layer
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
+      attribution: 'Esri Satellite'
+    }).addTo(map);
+
+    // Boundary overlay labels
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19
+    }).addTo(map);
+
+    map.pm.addControls({
+      position: 'topleft',
+      drawPolygon: true,
+      drawRectangle: true,
+      drawPolyline: false,
+      drawCircle: false,
+      drawMarker: false,
+      drawCircleMarker: false,
+      editMode: true,
+      dragMode: true,
+      cutPolygon: false,
+      removalMode: true
+    });
+
+    var activeParcel = null;
+
+    map.on('pm:create', function(e) {
+      if (activeParcel) {
+        map.removeLayer(activeParcel);
+      }
+      activeParcel = e.layer;
+      calculateMetrics(activeParcel);
+
+      activeParcel.on('pm:edit', function() {
+        calculateMetrics(activeParcel);
+      });
+    });
+
+    map.on('pm:remove', function() {
+      activeParcel = null;
+      document.getElementById('acres').innerText = '0.00';
+      document.getElementById('guntas').innerText = '0.00';
+      document.getElementById('sqyd').innerText = '0.00';
+      document.getElementById('sqm').innerText = '0.00';
+      document.getElementById('perim').innerText = '0.00 m';
+    });
+
+    function calculateMetrics(layer) {
+      var geojson = layer.toGeoJSON();
+      var sqm = turf.area(geojson);
+      var perim = turf.length(geojson, { units: 'kilometers' }) * 1000;
+
+      var acres = sqm / 4046.8564;
+      var guntas = acres * 40;
+      var sqYards = sqm * 1.19599;
+
+      document.getElementById('sqm').innerText = sqm.toLocaleString(undefined, { maximumFractionDigits: 1 });
+      document.getElementById('acres').innerText = acres.toFixed(3);
+      document.getElementById('guntas').innerText = guntas.toFixed(2);
+      document.getElementById('sqyd').innerText = sqYards.toLocaleString(undefined, { maximumFractionDigits: 0 });
+      document.getElementById('perim').innerText = perim.toFixed(1) + ' m';
+    }
+
+    function flyToLocation() {
+      var val = document.getElementById('coordInput').value;
+      var coords = val.split(',').map(function(s) { return parseFloat(s.trim()); });
+      if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+        map.flyTo([coords[0], coords[1]], 17);
+      } else {
+        alert('Please enter coordinates like: 17.2472, 80.1514');
+      }
+    }
+
+    function downloadKML() {
+      if (!activeParcel) {
+        alert('Draw a boundary first before downloading.');
+        return;
+      }
+      var coords = activeParcel.getLatLngs()[0];
+      var kmlCoords = coords.map(function(c) { return c.lng + ',' + c.lat + ',0'; }).join(' ');
+      kmlCoords += ' ' + coords[0].lng + ',' + coords[0].lat + ',0';
+
+      var kml = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+        '<kml xmlns="http://www.opengis.net/kml/2.2">\n' +
+        '  <Document>\n' +
+        '    <name>Land Layout</name>\n' +
+        '    <Placemark>\n' +
+        '      <name>Vacant Land Boundary</name>\n' +
+        '      <Polygon>\n' +
+        '        <outerBoundaryIs><LinearRing><coordinates>' + kmlCoords + '</coordinates></LinearRing></outerBoundaryIs>\n' +
+        '      </Polygon>\n' +
+        '    </Placemark>\n' +
+        '  </Document>\n' +
+        '</kml>';
+
+      var blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
+      var link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'land_boundary.kml';
+      link.click();
+    }
+  </script>
+
+</body>
+</html>
