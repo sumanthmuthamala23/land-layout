@@ -24,6 +24,8 @@
       z-index: 1000;
       box-shadow: 0 8px 30px rgba(0,0,0,0.45);
       width: 310px;
+      max-height: 94vh;
+      overflow-y: auto;
       border: 1px solid #334155;
       backdrop-filter: blur(8px);
     }
@@ -40,7 +42,7 @@
     .metric-name { color: #94a3b8; }
     .metric-value { font-weight: 600; color: #f8fafc; }
 
-    .nav-box { display: flex; gap: 6px; margin-bottom: 10px; }
+    .nav-box { display: flex; gap: 6px; margin-bottom: 8px; }
     input[type="text"] {
       flex: 1; padding: 7px 10px; border-radius: 6px; border: 1px solid #475569;
       background: #0f172a; color: #fff; font-size: 12px; outline: none;
@@ -53,6 +55,37 @@
     .btn-nav { background: #0284c7; color: #fff; }
     .btn-nav:hover { background: #0369a1; }
     
+    /* GPS Toggle Button Styles */
+    .btn-gps-toggle {
+      width: 100%;
+      padding: 9px;
+      font-size: 12px;
+      margin-bottom: 6px;
+      background: #334155;
+      color: #94a3b8;
+      border: 1px solid #475569;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .btn-gps-toggle.active {
+      background: #0284c7;
+      color: #ffffff;
+      border-color: #38bdf8;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+    }
+
+    .btn-tag-corner {
+      width: 100%;
+      padding: 8px;
+      font-size: 11px;
+      margin-bottom: 8px;
+      background: #475569;
+      color: #fff;
+    }
+    .btn-tag-corner:hover { background: #64748b; }
+
     .btn-generate {
       background: #8b5cf6; color: #fff; width: 100%; padding: 10px; font-size: 13px; margin-bottom: 8px;
     }
@@ -69,6 +102,22 @@
     .legend-item { display: flex; align-items: center; gap: 6px; }
     .color-box { width: 12px; height: 12px; border-radius: 2px; }
     .guide { font-size: 11px; color: #94a3b8; line-height: 1.4; margin-top: 8px; border-top: 1px solid #334155; padding-top: 6px; }
+
+    /* Pulsing Blue Dot for User GPS */
+    .gps-marker-icon {
+      width: 14px;
+      height: 14px;
+      background: #007aff;
+      border: 2.5px solid #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(0, 122, 255, 0.9);
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(0, 122, 255, 0.7); }
+      70% { box-shadow: 0 0 0 12px rgba(0, 122, 255, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(0, 122, 255, 0); }
+    }
   </style>
 </head>
 <body>
@@ -76,11 +125,21 @@
   <div id="sidebar">
     <h2>Architect Layout Studio</h2>
 
+    <!-- Coordinate Jump -->
     <div class="nav-box">
       <input type="text" id="coordInput" placeholder="Lat, Long (e.g. 17.2472, 80.1514)" />
       <button class="btn-nav" onclick="flyToLocation()">Fly</button>
     </div>
 
+    <!-- GPS Live Toggle -->
+    <button id="gpsToggleBtn" class="btn-gps-toggle" onclick="toggleGPS()">
+      <span id="gpsStatusDot">⚪</span> 📍 Toggle My Live Location
+    </button>
+    <button class="btn-tag-corner" onclick="tagCurrentGPSCorner()">
+      📌 Pin Corner at My Current Spot
+    </button>
+
+    <!-- Site Measurements -->
     <div class="metric-card">
       <div class="metric"><span class="metric-name">Total Extent:</span><span class="metric-value" id="val-acres">0.00 Acres</span></div>
       <div class="metric"><span class="metric-name">Guntas:</span><span class="metric-value" id="val-guntas">0.00 Gts</span></div>
@@ -88,9 +147,11 @@
       <div class="metric"><span class="metric-name">Est. 200yd Plots:</span><span class="metric-value" id="val-plotcount">0 Plots</span></div>
     </div>
 
+    <!-- Generator Actions -->
     <button class="btn-generate" onclick="generateArchitectLayout()">⚡ Auto-Generate Master Plan</button>
     <button class="btn-kml" onclick="exportArchitecturalKML()">🌍 Export 3D Google Earth KML</button>
 
+    <!-- Legend -->
     <div class="legend">
       <div class="legend-item"><div class="color-box" style="background:#f59e0b"></div> Villa Plots</div>
       <div class="legend-item"><div class="color-box" style="background:#64748b"></div> 40ft Spine Road</div>
@@ -99,15 +160,14 @@
     </div>
 
     <div class="guide">
-      1. Click the <strong>Polygon icon</strong> on the left toolbar to draw boundaries.<br>
-      2. Click <strong>⚡ Auto-Generate</strong> to create plots & road.<br>
-      3. Click <strong>Export 3D KML</strong> to open directly in Google Earth.
+      • Toggle GPS ON to see your live position as you walk the parcel.<br>
+      • Use <strong>Pin Corner</strong> to capture survey stones on foot, or trace corners using the polygon tool.
     </div>
   </div>
 
   <div id="map"></div>
 
-  <!-- Leaflet, Geoman Drawing & Turf.js Engine -->
+  <!-- Leaflet, Drawing Tools & Turf.js -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script>
   <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
@@ -115,13 +175,13 @@
   <script>
     var map = L.map('map').setView([17.2472, 80.1514], 16);
 
-    // Free, 100% reliable satellite imagery
+    // Esri High-Resolution Satellite Layer
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
       maxZoom: 19,
       attribution: 'Esri World Imagery'
     }).addTo(map);
 
-    // Free town/road labels overlay
+    // Reference places/streets overlay
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
       maxZoom: 19
     }).addTo(map);
@@ -181,10 +241,113 @@
       }
     }
 
-    // Auto-carve master layout
+    // --- LIVE GPS TRACKING & TOGGLE SYSTEM ---
+    var isGPSTracking = false;
+    var gpsWatchId = null;
+    var gpsUserMarker = null;
+    var gpsAccuracyCircle = null;
+    var latestUserLatLng = null;
+
+    function toggleGPS() {
+      var btn = document.getElementById('gpsToggleBtn');
+      var dot = document.getElementById('gpsStatusDot');
+
+      if (!isGPSTracking) {
+        if (!navigator.geolocation) {
+          alert('Geolocation is not supported by your browser.');
+          return;
+        }
+
+        // Start watching position continuously
+        gpsWatchId = navigator.geolocation.watchPosition(
+          function(position) {
+            var lat = position.coords.latitude;
+            var lng = position.coords.longitude;
+            var acc = position.coords.accuracy;
+            latestUserLatLng = [lat, lng];
+
+            // First time location is acquired, fly to it
+            if (!gpsUserMarker) {
+              map.flyTo([lat, lng], 18);
+            }
+
+            // Remove old marker/circle
+            if (gpsUserMarker) map.removeLayer(gpsUserMarker);
+            if (gpsAccuracyCircle) map.removeLayer(gpsAccuracyCircle);
+
+            // Create custom pulsing blue dot
+            var icon = L.divIcon({
+              className: 'gps-marker-icon',
+              iconSize: [14, 14],
+              iconAnchor: [7, 7]
+            });
+
+            gpsUserMarker = L.marker([lat, lng], { icon: icon }).addTo(map);
+            gpsAccuracyCircle = L.circle([lat, lng], {
+              radius: acc,
+              color: '#38bdf8',
+              fillColor: '#38bdf8',
+              fillOpacity: 0.15,
+              weight: 1
+            }).addTo(map);
+
+            gpsUserMarker.bindPopup("<b>You are here</b><br>Accuracy: " + Math.round(acc) + "m");
+          },
+          function(err) {
+            alert('Location error: ' + err.message);
+            stopGPS();
+          },
+          { enableHighAccuracy: true }
+        );
+
+        isGPSTracking = true;
+        btn.classList.add('active');
+        btn.innerHTML = '<span id="gpsStatusDot">🟢</span> 📍 GPS Tracking ON (Tap to Stop)';
+      } else {
+        stopGPS();
+      }
+    }
+
+    function stopGPS() {
+      if (gpsWatchId !== null) {
+        navigator.geolocation.clearWatch(gpsWatchId);
+        gpsWatchId = null;
+      }
+      if (gpsUserMarker) { map.removeLayer(gpsUserMarker); gpsUserMarker = null; }
+      if (gpsAccuracyCircle) { map.removeLayer(gpsAccuracyCircle); gpsAccuracyCircle = null; }
+
+      isGPSTracking = false;
+      var btn = document.getElementById('gpsToggleBtn');
+      btn.classList.remove('active');
+      btn.innerHTML = '<span id="gpsStatusDot">⚪</span> 📍 Toggle My Live Location';
+    }
+
+    // Drop a corner pin at current GPS spot while walking on site
+    var onSitePoints = [];
+    var onSitePinsGroup = L.layerGroup().addTo(map);
+
+    function tagCurrentGPSCorner() {
+      if (!latestUserLatLng) {
+        alert('Please turn ON "Toggle My Live Location" first so we can find your coordinates.');
+        return;
+      }
+
+      onSitePoints.push(latestUserLatLng);
+      var pin = L.marker(latestUserLatLng).addTo(onSitePinsGroup);
+      pin.bindPopup("<b>Corner #" + onSitePoints.length + "</b><br>" + latestUserLatLng[0].toFixed(6) + ", " + latestUserLatLng[1].toFixed(6)).openPopup();
+
+      // If user tagged 3 or more corners, auto-construct the boundary polygon
+      if (onSitePoints.length >= 3) {
+        if (outerBoundaryLayer) map.removeLayer(outerBoundaryLayer);
+        outerBoundaryLayer = L.polygon(onSitePoints, { color: '#38bdf8', weight: 3, fillOpacity: 0.2 }).addTo(map);
+        calculateSiteMetrics(outerBoundaryLayer);
+      }
+    }
+
+    // --- ARCHITECTURAL MASTER PLAN GENERATOR ---
     function generateArchitectLayout() {
       if (!outerBoundaryLayer) {
-        alert('Draw your outer vacant land boundary first.');
+        alert('Draw your outer vacant land boundary or walk and pin corners first.');
         return;
       }
 
@@ -255,7 +418,7 @@
       }
     }
 
-    // Export 3D Google Earth KML
+    // --- 3D GOOGLE EARTH KML EXPORT ---
     function exportArchitecturalKML() {
       if (layoutFeatures.length === 0) {
         alert('Generate the layout plan first.');
@@ -269,7 +432,7 @@
         var type = feat.properties.type;
         var sqyd = feat.properties.areaSqYards;
 
-        var kmlColor = 'b30b9ef5'; // Plots
+        var kmlColor = 'b30b9ef5';
         var height = '7';
 
         if (type === 'road') { kmlColor = 'b38b7464'; height = '0.5'; }
