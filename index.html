@@ -1,228 +1,324 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>3D Land & Layout Planner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Architectural Land & Layout Generator</title>
 
-  <!-- CesiumJS 3D Globe Library (Free & Open Source) -->
-  <link href="https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
-  <script src="https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Cesium.js"></script>
+  <!-- Leaflet & Drawing Tool Stylesheets -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.css" />
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    html, body, #cesiumContainer { width: 100%; height: 100%; overflow: hidden; }
+    body, #map { height: 100vh; width: 100vw; overflow: hidden; }
 
-    /* Control Dashboard */
-    #dashboard {
+    /* Architect Control Dashboard */
+    #sidebar {
       position: absolute;
-      top: 15px;
-      left: 15px;
-      background: rgba(15, 23, 42, 0.92);
-      color: #fff;
+      top: 12px;
+      right: 12px;
+      background: rgba(15, 23, 42, 0.95);
+      color: #ffffff;
       padding: 18px;
       border-radius: 12px;
-      width: 310px;
-      z-index: 999;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      z-index: 1000;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.45);
+      width: 320px;
+      max-height: 94vh;
+      overflow-y: auto;
       border: 1px solid #334155;
       backdrop-filter: blur(8px);
     }
-    h2 { font-size: 15px; color: #38bdf8; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .row { display: flex; gap: 8px; margin-bottom: 10px; }
-    input[type="text"] {
-      flex: 1; padding: 8px 10px; background: #0f172a; border: 1px solid #475569;
-      border-radius: 6px; color: #fff; font-size: 12px;
+    h2 { font-size: 14px; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+    
+    .metric-card {
+      background: #0f172a;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #1e293b;
+      margin-bottom: 10px;
     }
+    .metric { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+    .metric-name { color: #94a3b8; }
+    .metric-value { font-weight: 600; color: #f8fafc; }
+
+    .nav-box { display: flex; gap: 6px; margin-bottom: 10px; }
+    input[type="text"] {
+      flex: 1; padding: 7px 10px; border-radius: 6px; border: 1px solid #475569;
+      background: #0f172a; color: #fff; font-size: 12px; outline: none;
+    }
+
     button {
-      padding: 8px 12px; border: none; border-radius: 6px; font-size: 12px;
-      font-weight: 600; cursor: pointer; transition: 0.2s;
+      border: none; border-radius: 6px; cursor: pointer; font-weight: 600;
+      font-size: 12px; padding: 8px 12px; transition: 0.2s;
     }
     .btn-nav { background: #0284c7; color: #fff; }
     .btn-nav:hover { background: #0369a1; }
-    .btn-action { background: #3b82f6; color: #fff; width: 100%; margin-bottom: 6px; }
-    .btn-action:hover { background: #2563eb; }
-    .btn-clear { background: #ef4444; color: #fff; width: 100%; margin-bottom: 10px; }
-    .btn-clear:hover { background: #dc2626; }
-    .stats { border-top: 1px solid #334155; padding-top: 10px; margin-top: 6px; font-size: 12px; }
-    .stat-item { display: flex; justify-content: space-between; margin-bottom: 5px; }
-    .stat-label { color: #94a3b8; }
-    .stat-val { font-weight: 600; color: #f8fafc; }
-    .guide { font-size: 11px; color: #94a3b8; line-height: 1.4; margin-top: 10px; }
+    
+    .btn-generate {
+      background: #8b5cf6; color: #fff; width: 100%; padding: 10px; font-size: 13px; margin-bottom: 8px;
+    }
+    .btn-generate:hover { background: #7c3aed; }
+
+    .btn-kml {
+      background: #10b981; color: #fff; width: 100%; padding: 10px; font-size: 13px; margin-bottom: 8px;
+    }
+    .btn-kml:hover { background: #059669; }
+
+    .legend {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; font-size: 11px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .color-box { width: 12px; height: 12px; border-radius: 2px; }
   </style>
 </head>
 <body>
 
-  <div id="dashboard">
-    <h2>3D Land Boundary Planner</h2>
+  <div id="sidebar">
+    <h2>Architect Layout Studio</h2>
 
     <!-- Coordinate Jump -->
-    <div class="row">
-      <input type="text" id="coordsInput" placeholder="Lat, Long (e.g., 17.2472, 80.1514)">
-      <button class="btn-nav" onclick="flyToSite()">Fly</button>
+    <div class="nav-box">
+      <input type="text" id="coordInput" placeholder="Lat, Long (e.g. 17.25, 80.15)" />
+      <button class="btn-nav" onclick="flyToLocation()">Fly</button>
     </div>
 
-    <!-- Controls -->
-    <button id="drawBtn" class="btn-action" onclick="toggleDrawing()">Start Drawing Boundary</button>
-    <button class="btn-clear" onclick="resetBoundary()">Clear Boundary</button>
-
-    <!-- Measurement Stats -->
-    <div class="stats">
-      <div class="stat-item"><span class="stat-label">Acres:</span><span class="stat-val" id="acres">0.00</span></div>
-      <div class="stat-item"><span class="stat-label">Guntas:</span><span class="stat-val" id="guntas">0.00</span></div>
-      <div class="stat-item"><span class="stat-label">Sq. Yards (Gajalu):</span><span class="stat-val" id="sqyd">0.00</span></div>
-      <div class="stat-item"><span class="stat-label">Sq. Meters:</span><span class="stat-val" id="sqm">0.00</span></div>
+    <!-- Boundary Measurements -->
+    <div class="metric-card">
+      <div class="metric"><span class="metric-name">Total Extent:</span><span class="metric-value" id="val-acres">0.00 Acres</span></div>
+      <div class="metric"><span class="metric-name">Guntas:</span><span class="metric-value" id="val-guntas">0.00 Gts</span></div>
+      <div class="metric"><span class="metric-name">Gross Sq. Yards:</span><span class="metric-value" id="val-sqyd">0 Sq.Yd</span></div>
+      <div class="metric"><span class="metric-name">Estimated Plots:</span><span class="metric-value" id="val-plotcount">0 Plots</span></div>
     </div>
 
-    <div class="guide">
-      <strong>3D Controls:</strong><br>
-      • Left-click + Drag: Pan across terrain.<br>
-      • Right-click + Drag (or Scroll): Zoom.<br>
-      • Middle-click / CTRL + Left Drag: <strong>Tilt & Rotate 3D angle</strong>.
+    <!-- Generator Actions -->
+    <button class="btn-generate" onclick="generateArchitectLayout()">⚡ Auto-Generate Master Plan</button>
+    <button class="btn-kml" onclick="exportArchitecturalKML()">🌍 Export 3D Google Earth KML</button>
+
+    <!-- Map Legend -->
+    <div class="legend">
+      <div class="legend-item"><div class="color-box" style="background:#f59e0b"></div> Residential Plots</div>
+      <div class="legend-item"><div class="color-box" style="background:#64748b"></div> 40ft Spine Road</div>
+      <div class="legend-item"><div class="color-box" style="background:#22c55e"></div> Park / Open Space</div>
+      <div class="legend-item"><div class="color-box" style="background:#ef4444"></div> Utility / OHT Tank</div>
     </div>
   </div>
 
-  <div id="cesiumContainer"></div>
+  <div id="map"></div>
+
+  <!-- Leaflet, Geoman Toolbar, Turf.js Spatial Math -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script>
+  <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
 
   <script>
-    // 1. Initialize 3D Globe with Free Open Imagery (No Tokens or Credit Cards Required)
-    const viewer = new Cesium.Viewer('cesiumContainer', {
-      imageryProvider: new Cesium.ArcGisMapServerImageryProvider({
-        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'
-      }),
-      baseLayerPicker: false,
-      geocoder: false,
-      homeButton: false,
-      infoBox: false,
-      selectionIndicator: false,
-      timeline: false,
-      animation: false,
-      sceneModePicker: true,
-      navigationHelpButton: false
+    var map = L.map('map').setView([17.2472, 80.1514], 16);
+
+    // High-resolution Satellite Imagery
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
+      attribution: 'Esri Satellite'
+    }).addTo(map);
+
+    // Drawing Toolbar
+    map.pm.addControls({
+      position: 'topleft',
+      drawPolygon: true,
+      drawRectangle: true,
+      drawPolyline: false,
+      editMode: true,
+      removalMode: true
     });
 
-    // 2. Initial Camera View
-    viewer.camera.flyTo({
-      destination: Cesium.Cartesian3.fromDegrees(80.1514, 17.2472, 2500) // Default elevation 2500m
+    var outerBoundaryLayer = null;
+    var layoutFeatures = []; // Stores generated plots, roads, and amenities
+    var layoutLayerGroup = L.layerGroup().addTo(map);
+
+    map.on('pm:create', function(e) {
+      if (outerBoundaryLayer) {
+        map.removeLayer(outerBoundaryLayer);
+        layoutLayerGroup.clearLayers();
+        layoutFeatures = [];
+      }
+      outerBoundaryLayer = e.layer;
+      calculateSiteMetrics(outerBoundaryLayer);
+
+      outerBoundaryLayer.on('pm:edit', function() {
+        calculateSiteMetrics(outerBoundaryLayer);
+      });
     });
 
-    let isDrawing = false;
-    let boundaryPoints = [];
-    let pointEntities = [];
-    let boundaryPolygon = null;
+    function calculateSiteMetrics(layer) {
+      var geojson = layer.toGeoJSON();
+      var sqm = turf.area(geojson);
+      var acres = sqm / 4046.8564;
+      var guntas = acres * 40;
+      var sqYards = sqm * 1.19599;
 
-    function flyToSite() {
-      const val = document.getElementById('coordsInput').value;
-      const parts = val.split(',').map(s => parseFloat(s.trim()));
-      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-        viewer.camera.flyTo({
-          destination: Cesium.Cartesian3.fromDegrees(parts[1], parts[0], 1200),
-          orientation: {
-            heading: Cesium.Math.toRadians(0),
-            pitch: Cesium.Math.toRadians(-45) // 3D tilted view
-          }
-        });
+      // Net saleable area formula: ~55% of gross land / standard 220 Sq.Yard villa plot
+      var netSaleableYards = sqYards * 0.55;
+      var estimatedPlots = Math.floor(netSaleableYards / 220);
+
+      document.getElementById('val-acres').innerText = acres.toFixed(2) + ' Acres';
+      document.getElementById('val-guntas').innerText = guntas.toFixed(1) + ' Gts';
+      document.getElementById('val-sqyd').innerText = Math.round(sqYards).toLocaleString() + ' Sq.Yd';
+      document.getElementById('val-plotcount').innerText = estimatedPlots + ' Plots';
+    }
+
+    function flyToLocation() {
+      var val = document.getElementById('coordInput').value;
+      var coords = val.split(',').map(function(s) { return parseFloat(s.trim()); });
+      if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+        map.flyTo([coords[0], coords[1]], 17);
       } else {
-        alert("Enter coordinates in 'Latitude, Longitude' format.");
+        alert('Please enter coordinates in "Lat, Long" format.');
       }
     }
 
-    function toggleDrawing() {
-      isDrawing = !isDrawing;
-      const btn = document.getElementById('drawBtn');
-      if (isDrawing) {
-        btn.innerText = "Finish Boundary";
-        btn.style.background = "#10b981";
-      } else {
-        btn.innerText = "Start Drawing Boundary";
-        btn.style.background = "#3b82f6";
-        calculateMetrics();
+    // --- ARCHITECTURAL DIVISION ENGINE ---
+    function generateArchitectLayout() {
+      if (!outerBoundaryLayer) {
+        alert('Draw your outer vacant land boundary first.');
+        return;
       }
-    }
 
-    // Handle mouse clicks on 3D globe surface
-    const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
-    handler.setInputAction(function (movement) {
-      if (!isDrawing) return;
+      layoutLayerGroup.clearLayers();
+      layoutFeatures = [];
 
-      const earthPosition = viewer.scene.pickPosition(movement.position);
-      if (Cesium.defined(earthPosition)) {
-        boundaryPoints.push(earthPosition);
+      var boundaryGeo = outerBoundaryLayer.toGeoJSON();
+      var bbox = turf.bbox(boundaryGeo);
+      var minX = bbox[0], minY = bbox[1], maxX = bbox[2], maxY = bbox[3];
 
-        // Add visual corner pin
-        const point = viewer.entities.add({
-          position: earthPosition,
-          point: {
-            pixelSize: 8,
-            color: Cesium.Color.RED,
-            outlineColor: Cesium.Color.WHITE,
-            outlineWidth: 2
-          }
-        });
-        pointEntities.push(point);
+      // Divide site into an architectural grid
+      var rows = 5;
+      var cols = 6;
+      var dx = (maxX - minX) / cols;
+      var dy = (maxY - minY) / rows;
+      var plotIndex = 1;
 
-        // Render dynamic boundary outline
-        if (boundaryPoints.length > 2 && !boundaryPolygon) {
-          boundaryPolygon = viewer.entities.add({
-            polygon: {
-              hierarchy: new Cesium.CallbackProperty(() => new Cesium.PolygonHierarchy(boundaryPoints), false),
-              material: Cesium.Color.CYAN.withAlpha(0.35),
-              outline: true,
-              outlineColor: Cesium.Color.CYAN,
-              outlineWidth: 3
+      for (var r = 0; r < rows; r++) {
+        for (var c = 0; c < cols; c++) {
+          var cellBox = turf.bboxPolygon([
+            minX + c * dx,
+            minY + r * dy,
+            minX + (c + 1) * dx,
+            minY + (r + 1) * dy
+          ]);
+
+          // Clip to actual surveyed polygon boundary
+          var intersection = turf.intersect(boundaryGeo, cellBox);
+
+          if (intersection) {
+            var type = 'plot';
+            var color = '#f59e0b';
+            var name = 'Plot ' + plotIndex;
+
+            // Row 2 is allocated for the 40ft Main Central Spine Road
+            if (r === 2) {
+              type = 'road';
+              color = '#64748b';
+              name = '40ft Master Spine Road';
             }
-          });
+            // Corner allocated for Statutory Open Green Space (Park)
+            else if (r === 0 && c <= 1) {
+              type = 'park';
+              color = '#22c55e';
+              name = 'Public Park & Landscape';
+            }
+            // Corner allocated for Utility / Water Tank Substation
+            else if (r === 0 && c === 2) {
+              type = 'utility';
+              color = '#ef4444';
+              name = 'Utility Bay (OHT & Transformer)';
+            } else {
+              plotIndex++;
+            }
+
+            intersection.properties = {
+              name: name,
+              type: type,
+              color: color,
+              areaSqYards: Math.round(turf.area(intersection) * 1.19599)
+            };
+
+            layoutFeatures.push(intersection);
+
+            // Render on map
+            L.geoJSON(intersection, {
+              style: {
+                color: '#ffffff',
+                weight: 1.5,
+                fillColor: color,
+                fillOpacity: 0.65
+              }
+            }).bindPopup('<b>' + name + '</b><br>Type: ' + type.toUpperCase() + '<br>Area: ' + intersection.properties.areaSqYards + ' Sq.Yds').addTo(layoutLayerGroup);
+          }
         }
       }
-    }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
-
-    function resetBoundary() {
-      isDrawing = false;
-      document.getElementById('drawBtn').innerText = "Start Drawing Boundary";
-      document.getElementById('drawBtn').style.background = "#3b82f6";
-
-      boundaryPoints = [];
-      pointEntities.forEach(p => viewer.entities.remove(p));
-      pointEntities = [];
-      if (boundaryPolygon) {
-        viewer.entities.remove(boundaryPolygon);
-        boundaryPolygon = null;
-      }
-
-      document.getElementById('acres').innerText = '0.00';
-      document.getElementById('guntas').innerText = '0.00';
-      document.getElementById('sqyd').innerText = '0.00';
-      document.getElementById('sqm').innerText = '0.00';
     }
 
-    // Planar polygon area estimation from 3D coordinates
-    function calculateMetrics() {
-      if (boundaryPoints.length < 3) return;
-
-      let coords = boundaryPoints.map(p => {
-        let carto = Cesium.Cartographic.fromCartesian(p);
-        return [Cesium.Math.toDegrees(carto.longitude), Cesium.Math.toDegrees(carto.latitude)];
-      });
-      coords.push(coords[0]); // Close ring
-
-      // Shoelace formula converted to approximate square meters
-      let area = 0;
-      for (let i = 0; i < coords.length - 1; i++) {
-        let p1 = coords[i];
-        let p2 = coords[i + 1];
-        area += (p2[0] - p1[0]) * (2 + Math.sin(p1[1] * Math.PI / 180) + Math.sin(p2[1] * Math.PI / 180));
+    // --- 3D GOOGLE EARTH KML GENERATION ---
+    function exportArchitecturalKML() {
+      if (layoutFeatures.length === 0) {
+        alert('Generate the layout plan first.');
+        return;
       }
-      area = Math.abs(area * 6378137.0 * 6378137.0 / 4.0);
 
-      const sqm = area;
-      const acres = sqm / 4046.8564;
-      const guntas = acres * 40;
-      const sqyd = sqm * 1.19599;
+      var placemarks = '';
 
-      document.getElementById('sqm').innerText = sqm.toLocaleString(undefined, { maximumFractionDigits: 1 });
-      document.getElementById('acres').innerText = acres.toFixed(3);
-      document.getElementById('guntas').innerText = guntas.toFixed(2);
-      document.getElementById('sqyd').innerText = sqyd.toLocaleString(undefined, { maximumFractionDigits: 0 });
+      layoutFeatures.forEach(function(feat) {
+        var name = feat.properties.name;
+        var type = feat.properties.type;
+        var sqyd = feat.properties.areaSqYards;
+
+        // KML Color encoding (AABBGGRR in hex)
+        var kmlColor = 'b30b9ef5'; // Plots: Orange
+        var height = '8';          // 3D extrusion height in meters
+
+        if (type === 'road') { kmlColor = 'b38b7464'; height = '0.5'; }
+        if (type === 'park') { kmlColor = 'b35ec522'; height = '0.2'; }
+        if (type === 'utility') { kmlColor = 'b34444ef'; height = '14'; } // Elevated tank height
+
+        var geom = feat.geometry;
+        var coordsArray = (geom.type === 'Polygon') ? geom.coordinates[0] : geom.coordinates[0][0];
+
+        var coordString = coordsArray.map(function(c) {
+          return c[0] + ',' + c[1] + ',' + height;
+        }).join(' ');
+
+        placemarks += `
+        <Placemark>
+          <name>${name} (${sqyd} Sq.Yd)</name>
+          <description>Category: ${type.toUpperCase()}&#10;Estimated Footprint: ${sqyd} Sq. Yards</description>
+          <Style>
+            <LineStyle><color>ffffffff</color><width>2</width></LineStyle>
+            <PolyStyle><color>${kmlColor}</color><fill>1</fill><outline>1</outline></PolyStyle>
+          </Style>
+          <Polygon>
+            <extrude>1</extrude>
+            <altitudeMode>relativeToGround</altitudeMode>
+            <outerBoundaryIs>
+              <LinearRing><coordinates>${coordString}</coordinates></LinearRing>
+            </outerBoundaryIs>
+          </Polygon>
+        </Placemark>`;
+      });
+
+      var kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Master Architectural Layout Plan</name>
+    <open>1</open>
+    ${placemarks}
+  </Document>
+</kml>`;
+
+      var blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
+      var link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'Architectural_Master_Plan.kml';
+      link.click();
     }
   </script>
 </body>
