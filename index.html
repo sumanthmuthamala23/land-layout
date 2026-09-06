@@ -2,6 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Land Layout & Boundary Tool</title>
 
   <!-- Leaflet & Drawing Tool Stylesheets -->
@@ -26,17 +27,17 @@
       right: 15px;
       background: rgba(15, 23, 42, 0.94);
       color: #ffffff;
-      padding: 18px 20px;
+      padding: 16px 18px;
       border-radius: 12px;
       z-index: 1000;
       box-shadow: 0 6px 20px rgba(0,0,0,0.35);
-      width: 280px;
+      width: 270px;
       backdrop-filter: blur(6px);
       border: 1px solid #334155;
     }
     #info-box h3 {
-      margin: 0 0 12px 0;
-      font-size: 15px;
+      margin: 0 0 10px 0;
+      font-size: 14px;
       color: #38bdf8;
       text-transform: uppercase;
       letter-spacing: 0.5px;
@@ -44,8 +45,8 @@
     .metric {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 7px;
-      font-size: 13px;
+      margin-bottom: 6px;
+      font-size: 12px;
     }
     .metric-name {
       color: #94a3b8;
@@ -56,12 +57,12 @@
     }
     .divider {
       border-top: 1px solid #334155;
-      margin: 12px 0;
+      margin: 10px 0;
     }
     .search-row {
       display: flex;
       gap: 6px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
     input[type="text"] {
       flex: 1;
@@ -87,11 +88,26 @@
     button.btn:hover {
       background: #0369a1;
     }
+    button.btn-gps {
+      background: #3b82f6;
+      width: 100%;
+      padding: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    button.btn-gps:hover {
+      background: #2563eb;
+    }
     button.btn-export {
       background: #10b981;
       width: 100%;
-      padding: 9px;
-      font-size: 13px;
+      padding: 8px;
+      font-size: 12px;
       font-weight: 600;
     }
     button.btn-export:hover {
@@ -100,8 +116,18 @@
     .help-text {
       font-size: 11px;
       color: #94a3b8;
-      margin-top: 10px;
+      margin-top: 8px;
       line-height: 1.4;
+    }
+
+    /* GPS Pulsing Dot Style */
+    .gps-marker {
+      width: 16px;
+      height: 16px;
+      background-color: #007aff;
+      border: 3px solid #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(0, 122, 255, 0.8);
     }
   </style>
 </head>
@@ -113,6 +139,13 @@
       <input type="text" id="coordInput" placeholder="Lat, Long (e.g. 17.25, 80.15)" />
       <button class="btn" onclick="flyToLocation()">Go</button>
     </div>
+
+    <!-- Real-time GPS Button -->
+    <button class="btn btn-gps" onclick="locateUser()">
+      📍 Locate Me (Live GPS)
+    </button>
+
+    <div class="divider"></div>
 
     <!-- Area Metrics -->
     <h3>Land Measurements</h3>
@@ -128,7 +161,7 @@
     <button class="btn btn-export" onclick="downloadKML()">Download Google Earth KML</button>
 
     <div class="help-text">
-      Click the <strong>Polygon icon</strong> on the top left to draw corners. Click the initial corner to close.
+      Click the <strong>Polygon icon</strong> on top left to trace boundaries.
     </div>
   </div>
 
@@ -153,6 +186,7 @@
       maxZoom: 19
     }).addTo(map);
 
+    // Drawing toolbar
     map.pm.addControls({
       position: 'topleft',
       drawPolygon: true,
@@ -216,6 +250,60 @@
       }
     }
 
+    // --- LIVE GPS TRACKING LOGIC ---
+    var userLocationMarker = null;
+    var userAccuracyCircle = null;
+
+    function locateUser() {
+      if (!navigator.geolocation) {
+        alert("Geolocation is not supported by your browser.");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        function(position) {
+          var lat = position.coords.latitude;
+          var lng = position.coords.longitude;
+          var accuracy = position.coords.accuracy;
+
+          // Remove previous marker/circle if existing
+          if (userLocationMarker) map.removeLayer(userLocationMarker);
+          if (userAccuracyCircle) map.removeLayer(userAccuracyCircle);
+
+          // Create custom blue GPS icon
+          var gpsIcon = L.divIcon({
+            className: 'gps-marker',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
+          });
+
+          // Place marker & accuracy circle
+          userLocationMarker = L.marker([lat, lng], { icon: gpsIcon }).addTo(map);
+          userAccuracyCircle = L.circle([lat, lng], {
+            radius: accuracy,
+            color: '#3b82f6',
+            fillColor: '#60a5fa',
+            fillOpacity: 0.15,
+            weight: 1
+          }).addTo(map);
+
+          userLocationMarker.bindPopup("<b>You are here</b><br>GPS Accuracy: within " + Math.round(accuracy) + " meters").openPopup();
+
+          // Smoothly fly to current GPS position
+          map.flyTo([lat, lng], 18);
+        },
+        function(error) {
+          alert("Unable to retrieve your location: " + error.message);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    // --- KML EXPORT ---
     function downloadKML() {
       if (!activeParcel) {
         alert('Draw a boundary first before downloading.');
