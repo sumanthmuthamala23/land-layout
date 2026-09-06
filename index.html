@@ -1,338 +1,229 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Land Layout & Boundary Tool</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Land & Layout Planner</title>
 
-  <!-- Leaflet & Drawing Tool Stylesheets -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.css" />
+  <!-- CesiumJS 3D Globe Library (Free & Open Source) -->
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Cesium.js"></script>
 
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-    #map {
-      height: 100vh;
-      width: 100vw;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    html, body, #cesiumContainer { width: 100%; height: 100%; overflow: hidden; }
 
-    /* Floating Land Info Box */
-    #info-box {
+    /* Control Dashboard */
+    #dashboard {
       position: absolute;
       top: 15px;
-      right: 15px;
-      background: rgba(15, 23, 42, 0.94);
-      color: #ffffff;
-      padding: 16px 18px;
+      left: 15px;
+      background: rgba(15, 23, 42, 0.92);
+      color: #fff;
+      padding: 18px;
       border-radius: 12px;
-      z-index: 1000;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.35);
-      width: 270px;
-      backdrop-filter: blur(6px);
+      width: 310px;
+      z-index: 999;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
       border: 1px solid #334155;
+      backdrop-filter: blur(8px);
     }
-    #info-box h3 {
-      margin: 0 0 10px 0;
-      font-size: 14px;
-      color: #38bdf8;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .metric {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 6px;
-      font-size: 12px;
-    }
-    .metric-name {
-      color: #94a3b8;
-    }
-    .metric-value {
-      font-weight: 600;
-      color: #f8fafc;
-    }
-    .divider {
-      border-top: 1px solid #334155;
-      margin: 10px 0;
-    }
-    .search-row {
-      display: flex;
-      gap: 6px;
-      margin-bottom: 10px;
-    }
+    h2 { font-size: 15px; color: #38bdf8; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .row { display: flex; gap: 8px; margin-bottom: 10px; }
     input[type="text"] {
-      flex: 1;
-      padding: 7px 10px;
-      border-radius: 6px;
-      border: 1px solid #475569;
-      background: #0f172a;
-      color: #fff;
-      font-size: 12px;
-      outline: none;
+      flex: 1; padding: 8px 10px; background: #0f172a; border: 1px solid #475569;
+      border-radius: 6px; color: #fff; font-size: 12px;
     }
-    button.btn {
-      background: #0284c7;
-      color: #fff;
-      border: none;
-      padding: 7px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 500;
-      font-size: 12px;
-      transition: background 0.2s;
+    button {
+      padding: 8px 12px; border: none; border-radius: 6px; font-size: 12px;
+      font-weight: 600; cursor: pointer; transition: 0.2s;
     }
-    button.btn:hover {
-      background: #0369a1;
-    }
-    button.btn-gps {
-      background: #3b82f6;
-      width: 100%;
-      padding: 8px;
-      font-size: 12px;
-      font-weight: 600;
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-    }
-    button.btn-gps:hover {
-      background: #2563eb;
-    }
-    button.btn-export {
-      background: #10b981;
-      width: 100%;
-      padding: 8px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-    button.btn-export:hover {
-      background: #059669;
-    }
-    .help-text {
-      font-size: 11px;
-      color: #94a3b8;
-      margin-top: 8px;
-      line-height: 1.4;
-    }
-
-    /* GPS Pulsing Dot Style */
-    .gps-marker {
-      width: 16px;
-      height: 16px;
-      background-color: #007aff;
-      border: 3px solid #ffffff;
-      border-radius: 50%;
-      box-shadow: 0 0 10px rgba(0, 122, 255, 0.8);
-    }
+    .btn-nav { background: #0284c7; color: #fff; }
+    .btn-nav:hover { background: #0369a1; }
+    .btn-action { background: #3b82f6; color: #fff; width: 100%; margin-bottom: 6px; }
+    .btn-action:hover { background: #2563eb; }
+    .btn-clear { background: #ef4444; color: #fff; width: 100%; margin-bottom: 10px; }
+    .btn-clear:hover { background: #dc2626; }
+    .stats { border-top: 1px solid #334155; padding-top: 10px; margin-top: 6px; font-size: 12px; }
+    .stat-item { display: flex; justify-content: space-between; margin-bottom: 5px; }
+    .stat-label { color: #94a3b8; }
+    .stat-val { font-weight: 600; color: #f8fafc; }
+    .guide { font-size: 11px; color: #94a3b8; line-height: 1.4; margin-top: 10px; }
   </style>
 </head>
 <body>
 
-  <div id="info-box">
-    <!-- Navigate Section -->
-    <div class="search-row">
-      <input type="text" id="coordInput" placeholder="Lat, Long (e.g. 17.25, 80.15)" />
-      <button class="btn" onclick="flyToLocation()">Go</button>
+  <div id="dashboard">
+    <h2>3D Land Boundary Planner</h2>
+
+    <!-- Coordinate Jump -->
+    <div class="row">
+      <input type="text" id="coordsInput" placeholder="Lat, Long (e.g., 17.2472, 80.1514)">
+      <button class="btn-nav" onclick="flyToSite()">Fly</button>
     </div>
 
-    <!-- Real-time GPS Button -->
-    <button class="btn btn-gps" onclick="locateUser()">
-      📍 Locate Me (Live GPS)
-    </button>
+    <!-- Controls -->
+    <button id="drawBtn" class="btn-action" onclick="toggleDrawing()">Start Drawing Boundary</button>
+    <button class="btn-clear" onclick="resetBoundary()">Clear Boundary</button>
 
-    <div class="divider"></div>
+    <!-- Measurement Stats -->
+    <div class="stats">
+      <div class="stat-item"><span class="stat-label">Acres:</span><span class="stat-val" id="acres">0.00</span></div>
+      <div class="stat-item"><span class="stat-label">Guntas:</span><span class="stat-val" id="guntas">0.00</span></div>
+      <div class="stat-item"><span class="stat-label">Sq. Yards (Gajalu):</span><span class="stat-val" id="sqyd">0.00</span></div>
+      <div class="stat-item"><span class="stat-label">Sq. Meters:</span><span class="stat-val" id="sqm">0.00</span></div>
+    </div>
 
-    <!-- Area Metrics -->
-    <h3>Land Measurements</h3>
-    <div class="metric"><span class="metric-name">Acres:</span><span class="metric-value" id="acres">0.00</span></div>
-    <div class="metric"><span class="metric-name">Guntas:</span><span class="metric-value" id="guntas">0.00</span></div>
-    <div class="metric"><span class="metric-name">Sq. Yards (Gajalu):</span><span class="metric-value" id="sqyd">0.00</span></div>
-    <div class="metric"><span class="metric-name">Sq. Meters:</span><span class="metric-value" id="sqm">0.00</span></div>
-    <div class="metric"><span class="metric-name">Perimeter:</span><span class="metric-value" id="perim">0.00 m</span></div>
-    
-    <div class="divider"></div>
-
-    <!-- Google Earth KML Export -->
-    <button class="btn btn-export" onclick="downloadKML()">Download Google Earth KML</button>
-
-    <div class="help-text">
-      Click the <strong>Polygon icon</strong> on top left to trace boundaries.
+    <div class="guide">
+      <strong>3D Controls:</strong><br>
+      • Left-click + Drag: Pan across terrain.<br>
+      • Right-click + Drag (or Scroll): Zoom.<br>
+      • Middle-click / CTRL + Left Drag: <strong>Tilt & Rotate 3D angle</strong>.
     </div>
   </div>
 
-  <div id="map"></div>
-
-  <!-- Leaflet, Drawing Engine & Geometry Calculation Engine -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script>
-  <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+  <div id="cesiumContainer"></div>
 
   <script>
-    var map = L.map('map').setView([17.2472, 80.1514], 16);
-
-    // Esri High-Resolution Satellite Layer
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 19,
-      attribution: 'Esri Satellite'
-    }).addTo(map);
-
-    // Boundary overlay labels
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 19
-    }).addTo(map);
-
-    // Drawing toolbar
-    map.pm.addControls({
-      position: 'topleft',
-      drawPolygon: true,
-      drawRectangle: true,
-      drawPolyline: false,
-      drawCircle: false,
-      drawMarker: false,
-      drawCircleMarker: false,
-      editMode: true,
-      dragMode: true,
-      cutPolygon: false,
-      removalMode: true
+    // 1. Initialize 3D Globe with Free Open Imagery (No Tokens or Credit Cards Required)
+    const viewer = new Cesium.Viewer('cesiumContainer', {
+      imageryProvider: new Cesium.ArcGisMapServerImageryProvider({
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'
+      }),
+      baseLayerPicker: false,
+      geocoder: false,
+      homeButton: false,
+      infoBox: false,
+      selectionIndicator: false,
+      timeline: false,
+      animation: false,
+      sceneModePicker: true,
+      navigationHelpButton: false
     });
 
-    var activeParcel = null;
+    // 2. Initial Camera View
+    viewer.camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees(80.1514, 17.2472, 2500) // Default elevation 2500m
+    });
 
-    map.on('pm:create', function(e) {
-      if (activeParcel) {
-        map.removeLayer(activeParcel);
+    let isDrawing = false;
+    let boundaryPoints = [];
+    let pointEntities = [];
+    let boundaryPolygon = null;
+
+    function flyToSite() {
+      const val = document.getElementById('coordsInput').value;
+      const parts = val.split(',').map(s => parseFloat(s.trim()));
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        viewer.camera.flyTo({
+          destination: Cesium.Cartesian3.fromDegrees(parts[1], parts[0], 1200),
+          orientation: {
+            heading: Cesium.Math.toRadians(0),
+            pitch: Cesium.Math.toRadians(-45) // 3D tilted view
+          }
+        });
+      } else {
+        alert("Enter coordinates in 'Latitude, Longitude' format.");
       }
-      activeParcel = e.layer;
-      calculateMetrics(activeParcel);
+    }
 
-      activeParcel.on('pm:edit', function() {
-        calculateMetrics(activeParcel);
-      });
-    });
+    function toggleDrawing() {
+      isDrawing = !isDrawing;
+      const btn = document.getElementById('drawBtn');
+      if (isDrawing) {
+        btn.innerText = "Finish Boundary";
+        btn.style.background = "#10b981";
+      } else {
+        btn.innerText = "Start Drawing Boundary";
+        btn.style.background = "#3b82f6";
+        calculateMetrics();
+      }
+    }
 
-    map.on('pm:remove', function() {
-      activeParcel = null;
+    // Handle mouse clicks on 3D globe surface
+    const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+    handler.setInputAction(function (movement) {
+      if (!isDrawing) return;
+
+      const earthPosition = viewer.scene.pickPosition(movement.position);
+      if (Cesium.defined(earthPosition)) {
+        boundaryPoints.push(earthPosition);
+
+        // Add visual corner pin
+        const point = viewer.entities.add({
+          position: earthPosition,
+          point: {
+            pixelSize: 8,
+            color: Cesium.Color.RED,
+            outlineColor: Cesium.Color.WHITE,
+            outlineWidth: 2
+          }
+        });
+        pointEntities.push(point);
+
+        // Render dynamic boundary outline
+        if (boundaryPoints.length > 2 && !boundaryPolygon) {
+          boundaryPolygon = viewer.entities.add({
+            polygon: {
+              hierarchy: new Cesium.CallbackProperty(() => new Cesium.PolygonHierarchy(boundaryPoints), false),
+              material: Cesium.Color.CYAN.withAlpha(0.35),
+              outline: true,
+              outlineColor: Cesium.Color.CYAN,
+              outlineWidth: 3
+            }
+          });
+        }
+      }
+    }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+    function resetBoundary() {
+      isDrawing = false;
+      document.getElementById('drawBtn').innerText = "Start Drawing Boundary";
+      document.getElementById('drawBtn').style.background = "#3b82f6";
+
+      boundaryPoints = [];
+      pointEntities.forEach(p => viewer.entities.remove(p));
+      pointEntities = [];
+      if (boundaryPolygon) {
+        viewer.entities.remove(boundaryPolygon);
+        boundaryPolygon = null;
+      }
+
       document.getElementById('acres').innerText = '0.00';
       document.getElementById('guntas').innerText = '0.00';
       document.getElementById('sqyd').innerText = '0.00';
       document.getElementById('sqm').innerText = '0.00';
-      document.getElementById('perim').innerText = '0.00 m';
-    });
+    }
 
-    function calculateMetrics(layer) {
-      var geojson = layer.toGeoJSON();
-      var sqm = turf.area(geojson);
-      var perim = turf.length(geojson, { units: 'kilometers' }) * 1000;
+    // Planar polygon area estimation from 3D coordinates
+    function calculateMetrics() {
+      if (boundaryPoints.length < 3) return;
 
-      var acres = sqm / 4046.8564;
-      var guntas = acres * 40;
-      var sqYards = sqm * 1.19599;
+      let coords = boundaryPoints.map(p => {
+        let carto = Cesium.Cartographic.fromCartesian(p);
+        return [Cesium.Math.toDegrees(carto.longitude), Cesium.Math.toDegrees(carto.latitude)];
+      });
+      coords.push(coords[0]); // Close ring
+
+      // Shoelace formula converted to approximate square meters
+      let area = 0;
+      for (let i = 0; i < coords.length - 1; i++) {
+        let p1 = coords[i];
+        let p2 = coords[i + 1];
+        area += (p2[0] - p1[0]) * (2 + Math.sin(p1[1] * Math.PI / 180) + Math.sin(p2[1] * Math.PI / 180));
+      }
+      area = Math.abs(area * 6378137.0 * 6378137.0 / 4.0);
+
+      const sqm = area;
+      const acres = sqm / 4046.8564;
+      const guntas = acres * 40;
+      const sqyd = sqm * 1.19599;
 
       document.getElementById('sqm').innerText = sqm.toLocaleString(undefined, { maximumFractionDigits: 1 });
       document.getElementById('acres').innerText = acres.toFixed(3);
       document.getElementById('guntas').innerText = guntas.toFixed(2);
-      document.getElementById('sqyd').innerText = sqYards.toLocaleString(undefined, { maximumFractionDigits: 0 });
-      document.getElementById('perim').innerText = perim.toFixed(1) + ' m';
-    }
-
-    function flyToLocation() {
-      var val = document.getElementById('coordInput').value;
-      var coords = val.split(',').map(function(s) { return parseFloat(s.trim()); });
-      if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
-        map.flyTo([coords[0], coords[1]], 17);
-      } else {
-        alert('Please enter coordinates like: 17.2472, 80.1514');
-      }
-    }
-
-    // --- LIVE GPS TRACKING LOGIC ---
-    var userLocationMarker = null;
-    var userAccuracyCircle = null;
-
-    function locateUser() {
-      if (!navigator.geolocation) {
-        alert("Geolocation is not supported by your browser.");
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        function(position) {
-          var lat = position.coords.latitude;
-          var lng = position.coords.longitude;
-          var accuracy = position.coords.accuracy;
-
-          // Remove previous marker/circle if existing
-          if (userLocationMarker) map.removeLayer(userLocationMarker);
-          if (userAccuracyCircle) map.removeLayer(userAccuracyCircle);
-
-          // Create custom blue GPS icon
-          var gpsIcon = L.divIcon({
-            className: 'gps-marker',
-            iconSize: [16, 16],
-            iconAnchor: [8, 8]
-          });
-
-          // Place marker & accuracy circle
-          userLocationMarker = L.marker([lat, lng], { icon: gpsIcon }).addTo(map);
-          userAccuracyCircle = L.circle([lat, lng], {
-            radius: accuracy,
-            color: '#3b82f6',
-            fillColor: '#60a5fa',
-            fillOpacity: 0.15,
-            weight: 1
-          }).addTo(map);
-
-          userLocationMarker.bindPopup("<b>You are here</b><br>GPS Accuracy: within " + Math.round(accuracy) + " meters").openPopup();
-
-          // Smoothly fly to current GPS position
-          map.flyTo([lat, lng], 18);
-        },
-        function(error) {
-          alert("Unable to retrieve your location: " + error.message);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        }
-      );
-    }
-
-    // --- KML EXPORT ---
-    function downloadKML() {
-      if (!activeParcel) {
-        alert('Draw a boundary first before downloading.');
-        return;
-      }
-      var coords = activeParcel.getLatLngs()[0];
-      var kmlCoords = coords.map(function(c) { return c.lng + ',' + c.lat + ',0'; }).join(' ');
-      kmlCoords += ' ' + coords[0].lng + ',' + coords[0].lat + ',0';
-
-      var kml = '<?xml version="1.0" encoding="UTF-8"?>\n' +
-        '<kml xmlns="http://www.opengis.net/kml/2.2">\n' +
-        '  <Document>\n' +
-        '    <name>Land Layout</name>\n' +
-        '    <Placemark>\n' +
-        '      <name>Vacant Land Boundary</name>\n' +
-        '      <Polygon>\n' +
-        '        <outerBoundaryIs><LinearRing><coordinates>' + kmlCoords + '</coordinates></LinearRing></outerBoundaryIs>\n' +
-        '      </Polygon>\n' +
-        '    </Placemark>\n' +
-        '  </Document>\n' +
-        '</kml>';
-
-      var blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
-      var link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = 'land_boundary.kml';
-      link.click();
+      document.getElementById('sqyd').innerText = sqyd.toLocaleString(undefined, { maximumFractionDigits: 0 });
     }
   </script>
-
 </body>
 </html>
